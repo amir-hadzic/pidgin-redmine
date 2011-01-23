@@ -35,8 +35,25 @@ static PurplePlugin *this_plugin = NULL;
 static PurpleCmdId  project_command_id,
                     issue_command_id;
 
+static void
+apply_issue_link(char **message)
+{
+	GRegex *regex = g_regex_new("#(\\d+)", G_REGEX_OPTIMIZE, 0, NULL);
+
+	gchar *url = purple_prefs_get_string(PLUGIN_PREF_URL);
+	gchar *replace = g_strdup_printf("<a href=\"%s/issues/\\g<1>\">\\0</a>", url);
+
+	*message = g_regex_replace(regex, *message, strlen(*message), 0,
+								replace, G_REGEX_MATCH_NOTEMPTY, NULL);
+
+	purple_debug_misc(PLUGIN_ID, "Message after apply_issue_link: %s", *message);
+
+	g_regex_unref(regex);
+	g_free(replace);
+}
+
 static PurpleCmdRet
-project_cb(PurpleConversation *conv, const gchar *cmd, gchar **args, gchar **errror, void *data)
+project_cb(PurpleConversation *conv, const gchar *cmd, gchar **args, gchar **error, void *data)
 {
     purple_debug_misc(PLUGIN_ID, "project_cb called: %s\n", args[0]);
 
@@ -56,26 +73,12 @@ issue_cb(PurpleConversation *conv, const gchar *cmd, gchar **args, gchar **errro
 }
 
 static gboolean
-receiving_im_msg( PurpleAccount *account, char **sender, char **message,
-                    PurpleConversation *conv, PurpleMessageFlags *flags)
+writing_im_msg(PurpleAccount *account, const char *who, char **message,
+				PurpleConversation *conv, PurpleMessageFlags flags)
 {
-    if (conv == NULL)
-        conv = purple_conversation_new(PURPLE_CONV_TYPE_IM, account, *sender);
+	apply_issue_link(message);
 
-    GError *regex_error = NULL;
-    GRegex *regex = g_regex_new("#(\\d+)", G_REGEX_OPTIMIZE, 0, &regex_error);
-
-    gchar *url = purple_prefs_get_string(PLUGIN_PREF_URL);
-    gchar *replace = g_strdup_printf("<a href=\"%s/issues/\\g<1>\">\\0</a>", url);
-
-    *message = g_regex_replace(regex, *message, strlen(*message), 0,
-                                replace, G_REGEX_MATCH_NOTEMPTY, &regex_error);
-
-    g_regex_unref(regex);
-    g_free(replace);
-    g_free(regex_error);
-
-    return FALSE;
+	return FALSE;
 }
 
 static gboolean
@@ -114,14 +117,13 @@ plugin_load(PurplePlugin *plugin) {
     );
 
     purple_signal_connect
-    (
-        purple_conversations_get_handle(),
-        "receiving-im-msg",
-        this_plugin,
-        PURPLE_CALLBACK(receiving_im_msg),
-        NULL
-    );
-
+	(
+		purple_conversations_get_handle(),
+		"writing-im-msg",
+		this_plugin,
+		PURPLE_CALLBACK(writing_im_msg),
+		NULL
+	);
 
     return TRUE;
 }
