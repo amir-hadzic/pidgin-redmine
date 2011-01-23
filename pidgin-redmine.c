@@ -69,7 +69,7 @@ receiving_im_msg( PurpleAccount *account, char **sender, char **message,
     gchar *replace = g_strdup_printf("<a href=\"%s/issues/\\g<1>\">\\0</a>", url);
 
     *message = g_regex_replace(regex, *message, strlen(*message), 0,
-    								replace, G_REGEX_MATCH_NOTEMPTY, &regex_error);
+                                replace, G_REGEX_MATCH_NOTEMPTY, &regex_error);
 
     g_regex_unref(regex);
     g_free(replace);
